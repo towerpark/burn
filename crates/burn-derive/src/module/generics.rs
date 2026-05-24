@@ -23,6 +23,10 @@ impl ModuleGenerics {
         self.kinds.is_empty()
     }
 
+    pub fn get_entry(&self, ident: &Ident) -> Option<(&Ident, &GenericKind)> {
+        self.kinds.get_key_value(ident)
+    }
+
     pub fn get_generic_kind(&self, ident: &Ident) -> Option<&GenericKind> {
         self.kinds.get(ident)
     }

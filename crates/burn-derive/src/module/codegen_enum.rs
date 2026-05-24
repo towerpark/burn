@@ -3,6 +3,8 @@ use crate::module::{
     codegen_struct::{ModuleFieldType, parse_module_field_type},
     generics::{ModuleGenerics, parse_module_generics},
 };
+use crate::shared::field::check_skipped_module_generic;
+
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 use syn::Visibility;
@@ -340,6 +342,8 @@ pub(crate) fn parse_variants(
             }
         }
     }
+
+    check_skipped_module_generic(variants.iter().map(|v| &v.field_type), &generics)?;
 
     Ok(variants)
 }

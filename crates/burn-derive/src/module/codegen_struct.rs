@@ -3,6 +3,7 @@ use std::collections::HashSet;
 use crate::module::generics::{
     GenericKind, ModuleGenerics, parse_module_generics, parse_ty_generics,
 };
+use crate::shared::field::check_skipped_module_generic;
 
 use super::{codegen::ModuleCodegen, record_struct::StructModuleRecordCodegen};
 use proc_macro2::{Ident, TokenStream};
@@ -388,6 +389,9 @@ pub(crate) fn parse_module_fields(
         syn::Data::Enum(_) => panic!("Only struct can be derived"),
         syn::Data::Union(_) => panic!("Only struct can be derived"),
     };
+
+    check_skipped_module_generic(fields.iter().map(|mf| &mf.field_type), &generics)?;
+
     Ok(fields)
 }
 
