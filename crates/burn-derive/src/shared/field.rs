@@ -114,8 +114,8 @@ pub(crate) fn check_skipped_module_generic<'a>(
                 if matches!(kind, GenericKind::Skip) {
                     Some(syn::Error::new(
                         mod_generic.span(),
-                        "Generic type cannot be used on a module field and a \
-                         skipped field at the same time",
+                        "Generic type should not be used on a module field and \
+                         a skipped field at the same time",
                     ))
                 } else {
                     None
