@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
-use crate::module::codegen_struct::{ModuleField, ModuleFieldAttribute};
+use crate::module::codegen::ModuleFieldAttribute;
+use crate::module::codegen_struct::ModuleField;
 use proc_macro2::{Ident, TokenStream};
 use quote::quote;
 use syn::{Generics, Visibility};

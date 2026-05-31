@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use super::{display, record::ModuleRecordCodegen};
 use crate::{
     module::generics::{GenericKind, ModuleGenerics},
@@ -5,7 +7,7 @@ use crate::{
 };
 use proc_macro2::{Ident, TokenStream};
 use quote::quote;
-use syn::{Attribute, Generics, parse_quote};
+use syn::{Attribute, Generics, parse_quote, Type};
 
 /// Basic trait to be implemented for Module generation.
 pub(crate) trait ModuleCodegen {
@@ -221,6 +223,38 @@ impl GenericsParser {
     }
 }
 
+#[derive(Debug)]
+pub enum ModuleFieldAttribute {
+    Skip,
+}
+
+#[derive(Default, Debug)]
+pub struct ModuleFieldType {
+    pub is_module: bool,
+    pub attr: Option<ModuleFieldAttribute>,
+    pub generic_idents: HashSet<Ident>,
+}
+
+impl ModuleFieldType {
+    /// Returns true if the field is a module with parameters
+    /// (i.e., a real module that is neither skipped nor constant).
+    pub fn is_parameter_module(&self) -> bool {
+        self.is_module && self.attr.is_none()
+    }
+
+    /// Returns true for modules that should be persisted, including constants.
+    pub fn is_persistent_module(&self) -> bool {
+        self.is_module && !matches!(self.attr, Some(ModuleFieldAttribute::Skip))
+    }
+
+    /// Returns true for generic fields that are assumed to be modules.
+    pub fn maybe_generic_module(&self) -> bool {
+        // We assumed it might be a module generic if the field is not marked
+        // by any attributes (skip or constant)
+        !self.generic_idents.is_empty() && self.attr.is_none()
+    }
+}
+
 fn has_custom_display(attrs: &[Attribute]) -> bool {
     attrs.iter().any(|attr| {
         attr.path().is_ident("module")
@@ -234,4 +268,37 @@ fn has_custom_display(attrs: &[Attribute]) -> bool {
                 })
                 .is_ok()
     })
+}
+
+/// Returns an error if any module field has a generic type of the
+/// `GenericKind::Skip` kind, because such a field should not be skipped.
+pub(crate) fn check_skipped_module_generic<'a>(
+    fields: impl Iterator<Item = (&'a Type, &'a ModuleFieldType)>,
+    generics: &ModuleGenerics,
+) -> syn::Result<()> {
+    // Multiple errors are combined into one
+    fields
+        .filter_map(|(ty, mft)| {
+            // TODO: comment
+            if mft.is_module
+                && let Type::Path(p) = ty
+                && let Some(id) = p.path.get_ident()
+                && mft.generic_idents.contains(id)
+            {
+                debug_assert_eq!(mft.generic_idents.len(), 1);
+                let (generic, kind) = generics.get_entry(id).expect(
+                    "Generic used in a field should be one of the generics declared by its parent type"
+                );
+                if matches!(kind, GenericKind::Skip) {
+                    return Some(syn::Error::new(
+                        generic.span(),
+                        "Generic type should not be used on a module field and \
+                         a skipped field at the same time",
+                    ));
+                }
+            }
+            None
+        })
+        .reduce(|mut sink, err| { sink.combine(err); sink })
+        .map_or(Ok(()), |sink| Err(sink))
 }

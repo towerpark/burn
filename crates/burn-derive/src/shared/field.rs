@@ -1,7 +1,3 @@
-use crate::module::{
-    generics::{GenericKind, ModuleGenerics},
-    codegen_struct::ModuleFieldType,
-};
 use super::attribute::AttributeAnalyzer;
 use proc_macro2::Ident;
 use syn::{Field, Type, TypePath};
@@ -100,28 +96,4 @@ pub(crate) fn parse_fields(ast: &syn::DeriveInput) -> Vec<Field> {
         syn::Data::Union(_) => panic!("Only struct can be derived"),
     };
     fields
-}
-
-pub(crate) fn check_skipped_module_generic<'a>(
-    fields: impl Iterator<Item = &'a ModuleFieldType>,
-    generics: &ModuleGenerics,
-) -> syn::Result<()> {
-    fields
-        .filter(|mft| mft.is_module)
-        .flat_map(|mft| mft.generic_idents.iter())
-        .filter_map(|field_generic|
-            generics.get_entry(field_generic).and_then(|(mod_generic, kind)| {
-                if matches!(kind, GenericKind::Skip) {
-                    Some(syn::Error::new(
-                        mod_generic.span(),
-                        "Generic type should not be used on a module field and \
-                         a skipped field at the same time",
-                    ))
-                } else {
-                    None
-                }
-            })
-        )
-        .reduce(|mut sink, err| { sink.combine(err); sink })
-        .map_or(Ok(()), |sink| Err(sink))
 }

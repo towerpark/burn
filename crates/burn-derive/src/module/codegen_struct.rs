@@ -3,9 +3,16 @@ use std::collections::HashSet;
 use crate::module::generics::{
     GenericKind, ModuleGenerics, parse_module_generics, parse_ty_generics,
 };
-use crate::shared::field::check_skipped_module_generic;
 
-use super::{codegen::ModuleCodegen, record_struct::StructModuleRecordCodegen};
+use super::{
+    codegen::{
+        check_skipped_module_generic,
+        ModuleCodegen,
+        ModuleFieldAttribute,
+        ModuleFieldType,
+    },
+    record_struct::StructModuleRecordCodegen,
+};
 use proc_macro2::{Ident, TokenStream};
 use quote::{ToTokens, quote};
 use syn::{Field, Visibility};
@@ -341,38 +348,6 @@ impl ModuleField {
     }
 }
 
-#[derive(Debug)]
-pub enum ModuleFieldAttribute {
-    Skip,
-}
-
-#[derive(Default, Debug)]
-pub struct ModuleFieldType {
-    pub is_module: bool,
-    pub attr: Option<ModuleFieldAttribute>,
-    pub generic_idents: HashSet<Ident>,
-}
-
-impl ModuleFieldType {
-    /// Returns true if the field is a module with parameters
-    /// (i.e., a real module that is neither skipped nor constant).
-    pub fn is_parameter_module(&self) -> bool {
-        self.is_module && self.attr.is_none()
-    }
-
-    /// Returns true for modules that should be persisted, including constants.
-    pub fn is_persistent_module(&self) -> bool {
-        self.is_module && !matches!(self.attr, Some(ModuleFieldAttribute::Skip))
-    }
-
-    /// Returns true for generic fields that are assumed to be modules.
-    pub fn maybe_generic_module(&self) -> bool {
-        // We assumed it might be a module generic if the field is not marked
-        // by any attributes (skip or constant)
-        !self.generic_idents.is_empty() && self.attr.is_none()
-    }
-}
-
 pub(crate) fn parse_module_fields(
     ast: &syn::DeriveInput,
     generics: &mut ModuleGenerics,
@@ -390,7 +365,10 @@ pub(crate) fn parse_module_fields(
         syn::Data::Union(_) => panic!("Only struct can be derived"),
     };
 
-    check_skipped_module_generic(fields.iter().map(|mf| &mf.field_type), &generics)?;
+    check_skipped_module_generic(
+        fields.iter().map(|mf| (&mf.field.ty, &mf.field_type)),
+        &generics,
+    )?;
 
     Ok(fields)
 }

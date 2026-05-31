@@ -1,9 +1,9 @@
 use super::{codegen::ModuleCodegen, record_enum::EnumModuleRecordCodegen};
 use crate::module::{
-    codegen_struct::{ModuleFieldType, parse_module_field_type},
+    codegen::{check_skipped_module_generic, ModuleFieldType},
+    codegen_struct::parse_module_field_type,
     generics::{ModuleGenerics, parse_module_generics},
 };
-use crate::shared::field::check_skipped_module_generic;
 
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
@@ -343,7 +343,10 @@ pub(crate) fn parse_variants(
         }
     }
 
-    check_skipped_module_generic(variants.iter().map(|v| &v.field_type), &generics)?;
+    check_skipped_module_generic(
+        variants.iter().map(|v| (&v.ty, &v.field_type)),
+        &generics,
+    )?;
 
     Ok(variants)
 }
